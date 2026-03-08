@@ -1,75 +1,75 @@
 # PatternPilot
 
-PatternPilot is a native Windows fullscreen display-pattern utility for panel validation, image review, and Crosstalk testing.
+PatternPilot 是一个原生 Windows 全屏显示图案工具，用于面板测试、图像查看和 Crosstalk 检查。
 
-## Highlights
+## 功能特点
 
-- Native WinForms implementation focused on fast startup and low rendering overhead
-- Fullscreen pattern presentation across multiple monitors
-- Built-in grayscale, checkerboard, align, gradients, lines, dot patterns, Crosstalk, image mode, and One Third
-- PNG export of the current view
-- Crosshair tool for pixel and line positioning
+- 原生 WinForms 实现，优先关注启动速度和渲染开销
+- 支持多显示器全屏显示与快速切换
+- 内置灰阶、棋盘格、对齐图、渐变、线条、点阵、Crosstalk、图像模式和 One Third
+- 支持将当前画面导出为 PNG
+- 内置十字工具，方便像素定位和线位检查
 
-## Screenshots
+## 软件截图
 
-Home screen:
+首页说明页：
 
-![Home Screen](docs/screenshots/home.png)
+![首页说明](docs/screenshots/home.png)
 
-Checkerboard pattern:
+棋盘格画面：
 
-![Checkerboard](docs/screenshots/checkerboard.png)
+![棋盘格画面](docs/screenshots/checkerboard.png)
 
-More screenshots: [docs/screenshots.md](docs/screenshots.md)
+更多截图说明见 [docs/screenshots.md](docs/screenshots.md)。
 
-## Keyboard Shortcuts
+## 快捷键
 
-- `Esc`: exit
-- `Tab`: switch monitor
-- `Ctrl+S`: save current screen as PNG
-- `Ctrl+R`: flip current pattern
-- `Ctrl+F`: toggle crosshair
-- `Up` / `Down`: change level
-- `Shift + Up` / `Shift + Down`: fast level step
-- `Home` / `End`: set level to `255` / `0`
-- `1-8`: switch color mode
-- `Ctrl+1` / `Ctrl+2`: load Crosstalk images in Crosstalk mode
+- `Esc`：退出程序
+- `Tab`：切换显示器
+- `Ctrl+S`：将当前画面保存为 PNG
+- `Ctrl+R`：翻转当前图案
+- `Ctrl+F`：开启或关闭十字工具
+- `上 / 下`：调整亮度等级
+- `Shift + 上 / 下`：快速调整
+- `Home / End`：设置等级为 `255 / 0`
+- `1-8`：切换颜色模式
+- `Ctrl+1 / Ctrl+2`：在 Crosstalk 模式下加载背景图和遮挡图
 
-## Build
+## 构建方法
 
-Requirements:
+环境要求：
 
 - Windows
 - .NET 8 SDK
 
-Build:
+构建：
 
 ```powershell
 dotnet build PatternPilot\PatternPilot.csproj -c Release
 ```
 
-Publish directory build:
+发布目录版：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File PatternPilot\publish.ps1 -Mode dir
 ```
 
-Publish single-file build:
+发布单文件版：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File PatternPilot\publish.ps1 -Mode single
 ```
 
-## Project Structure
+## 项目结构
 
-- [PatternPilot/PatternPilot.csproj](PatternPilot/PatternPilot.csproj): native project file
-- [PatternPilot/PatternForm.cs](PatternPilot/PatternForm.cs): core UI, rendering, patterns, input handling
-- [PatternPilot/StartupMetrics.cs](PatternPilot/StartupMetrics.cs): startup timing logger
-- [PatternPilot/publish.ps1](PatternPilot/publish.ps1): publish helper
-- [PatternPilot/measure_startup.ps1](PatternPilot/measure_startup.ps1): startup measurement helper
+- [PatternPilot/PatternPilot.csproj](PatternPilot/PatternPilot.csproj)：原生项目文件
+- [PatternPilot/PatternForm.cs](PatternPilot/PatternForm.cs)：核心窗口、渲染、图案和输入处理
+- [PatternPilot/StartupMetrics.cs](PatternPilot/StartupMetrics.cs)：启动时间记录
+- [PatternPilot/publish.ps1](PatternPilot/publish.ps1)：发布脚本
+- [PatternPilot/measure_startup.ps1](PatternPilot/measure_startup.ps1)：启动测速脚本
 
-## Notes
+## 说明
 
-- The default home screen contains a built-in Chinese usage guide.
-- `One Third` now renders as `1/3` white and `2/3` black.
-- The repository also keeps the original Python reference implementation in [main.py](main.py).
+- 软件默认首页内置了中文使用说明
+- `One Third` 画面规则为 `1/3` 白色、`2/3` 黑色
+- 仓库中保留了原始 Python 参考实现：[main.py](main.py)
