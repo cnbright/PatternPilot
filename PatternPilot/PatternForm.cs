@@ -101,6 +101,10 @@ internal sealed class PatternForm : Form
         {
             Icon = new Icon(iconPath);
         }
+        else
+        {
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
 
         ConfigureTaskbarProxy();
         BuildMenu();
