@@ -45,31 +45,37 @@ PatternPilot 是一个原生 Windows 全屏显示图案工具，用于面板测�
 构建：
 
 ```powershell
-dotnet build PatternPilot\PatternPilot.csproj -c Release
+dotnet build PatternPilot.csproj -c Release
 ```
 
 发布目录版：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File PatternPilot\publish.ps1 -Mode dir
+powershell -ExecutionPolicy Bypass -File publish.ps1 -Mode dir
 ```
 
 发布单文件版：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File PatternPilot\publish.ps1 -Mode single
+powershell -ExecutionPolicy Bypass -File publish.ps1 -Mode single
+```
+
+发布小体积单文件版：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File publish.ps1 -Mode single-small
 ```
 
 ## 项目结构
 
-- [PatternPilot/PatternPilot.csproj](PatternPilot/PatternPilot.csproj)：原生项目文件
-- [PatternPilot/PatternForm.cs](PatternPilot/PatternForm.cs)：核心窗口、渲染、图案和输入处理
-- [PatternPilot/StartupMetrics.cs](PatternPilot/StartupMetrics.cs)：启动时间记录
-- [PatternPilot/publish.ps1](PatternPilot/publish.ps1)：发布脚本
-- [PatternPilot/measure_startup.ps1](PatternPilot/measure_startup.ps1)：启动测速脚本
+- [PatternPilot.csproj](PatternPilot.csproj)：项目文件
+- [PatternForm.cs](PatternForm.cs)：核心窗口、渲染、图案和输入处理
+- [StartupMetrics.cs](StartupMetrics.cs)：启动时间记录
+- [publish.ps1](publish.ps1)：发布脚本
+- [measure_startup.ps1](measure_startup.ps1)：启动测速脚本
 
 ## 说明
 
 - 软件默认首页内置了中文使用说明
 - `One Third` 画面规则为 `1/3` 白色、`2/3` 黑色
-- 仓库中保留了原始 Python 参考实现：[main.py](main.py)
+- Release 中提供了更小体积的单文件发布方案
