@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+
+PatternPilot/bin/
+PatternPilot/obj/
+PatternPilot/artifacts/
+
+*.user
+*.suo
+*.pdb
