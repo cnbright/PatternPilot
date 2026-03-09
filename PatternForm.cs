@@ -13,8 +13,9 @@ internal enum PatternKind
     Checkerboard,
     Align,
     Image,
-    GrayHorizontal,
-    GrayVertical,
+    LinearGrayscale,
+    ColorfulGrayscale,
+    WrgbColorbar,
     GrayCenter,
     VerticalLine,
     HorizontalLine,
@@ -38,6 +39,12 @@ internal enum CrosshairMode
     HorizontalLine,
     VerticalLine,
     Point
+}
+
+internal enum BarOrientation
+{
+    Horizontal,
+    Vertical
 }
 
 internal sealed class PatternForm : Form
@@ -73,6 +80,7 @@ internal sealed class PatternForm : Form
     private string checkerMode = "white";
     private int checkerSizeIndex = 3;
     private int gradientSteps = 256;
+    private BarOrientation barOrientation = BarOrientation.Horizontal;
     private Rectangle? crosstalkRect;
     private int crosstalkBgLevel = 127;
     private int crosstalkBlockLevel = 0;
@@ -268,17 +276,18 @@ internal sealed class PatternForm : Form
         AddMenuItem("Align", (_, _) => SetPattern(PatternKind.Align));
         AddMenuItem("Image", (_, _) => OpenImage());
 
-        var grayH = new ToolStripMenuItem("Horizontal grayscale");
-        var grayV = new ToolStripMenuItem("Vertical grayscale");
+        var grayscaleBar = new ToolStripMenuItem("Grayscale");
+        var colorfulGrayscale = new ToolStripMenuItem("Colorful Grayscale");
         var grayCenter = new ToolStripMenuItem("Center grayscale");
         foreach (var steps in new[] { 9, 64, 256 })
         {
-            grayH.DropDownItems.Add(steps.ToString(), null, (_, _) => SetGradient(PatternKind.GrayHorizontal, steps));
-            grayV.DropDownItems.Add(steps.ToString(), null, (_, _) => SetGradient(PatternKind.GrayVertical, steps));
+            grayscaleBar.DropDownItems.Add(steps.ToString(), null, (_, _) => SetGradient(PatternKind.LinearGrayscale, steps));
+            colorfulGrayscale.DropDownItems.Add(steps.ToString(), null, (_, _) => SetGradient(PatternKind.ColorfulGrayscale, steps));
             grayCenter.DropDownItems.Add(steps.ToString(), null, (_, _) => SetGradient(PatternKind.GrayCenter, steps));
         }
-        contextMenu.Items.Add(grayH);
-        contextMenu.Items.Add(grayV);
+        contextMenu.Items.Add(grayscaleBar);
+        contextMenu.Items.Add(colorfulGrayscale);
+        AddMenuItem("WRGB Colorbar", (_, _) => SetPattern(PatternKind.WrgbColorbar));
         contextMenu.Items.Add(grayCenter);
 
         var vline = new ToolStripMenuItem("Vertical line");
@@ -364,6 +373,11 @@ internal sealed class PatternForm : Form
         {
             EnsureCrosstalkRect();
         }
+        if (value == PatternKind.WrgbColorbar)
+        {
+            grayLevel = 127;
+            barOrientation = BarOrientation.Horizontal;
+        }
 
         flipMode = FlipMode.None;
         pattern = value;
@@ -374,6 +388,7 @@ internal sealed class PatternForm : Form
     {
         gradientSteps = steps;
         flipMode = FlipMode.None;
+        barOrientation = BarOrientation.Horizontal;
         pattern = value;
         MarkDirty();
     }
@@ -608,7 +623,7 @@ internal sealed class PatternForm : Form
                 DrawHud(overlay, FormatElapsed(), bitmap.Width, true);
             }
         }
-        else if (pattern is PatternKind.Grayscale or PatternKind.VerticalLine or PatternKind.HorizontalLine or PatternKind.Dot1 or PatternKind.Dot2 or PatternKind.SubDot)
+        else if (pattern is PatternKind.Grayscale or PatternKind.VerticalLine or PatternKind.HorizontalLine or PatternKind.Dot1 or PatternKind.Dot2 or PatternKind.SubDot or PatternKind.WrgbColorbar)
         {
             if (!crosshairEnabled)
             {
@@ -643,13 +658,17 @@ internal sealed class PatternForm : Form
             case PatternKind.Checkerboard:
                 RenderCheckerboard(pixels, width, height);
                 break;
-            case PatternKind.GrayHorizontal:
+            case PatternKind.LinearGrayscale:
                 Array.Fill(pixels, black);
-                RenderHorizontalGradient(pixels, width, height);
+                RenderLinearGradient(pixels, width, height);
                 break;
-            case PatternKind.GrayVertical:
+            case PatternKind.ColorfulGrayscale:
                 Array.Fill(pixels, black);
-                RenderVerticalGradient(pixels, width, height);
+                RenderColorfulGrayscale(pixels, width, height);
+                break;
+            case PatternKind.WrgbColorbar:
+                Array.Fill(pixels, black);
+                RenderWrgbColorbar(pixels, width, height);
                 break;
             case PatternKind.GrayCenter:
                 Array.Fill(pixels, black);
@@ -734,6 +753,83 @@ internal sealed class PatternForm : Form
                 var dy1 = flipMode == FlipMode.Vertical ? height - srcY2 : srcY1;
                 var dy2 = flipMode == FlipMode.Vertical ? height - srcY1 : srcY2;
                 FillRectPixels(pixels, width, height, x1, dy1, x2, dy2, (row + col) % 2 == 0 ? onColor : offColor);
+            }
+        }
+    }
+
+    private void RenderLinearGradient(int[] pixels, int width, int height)
+    {
+        if (barOrientation == BarOrientation.Horizontal)
+        {
+            RenderHorizontalGradient(pixels, width, height);
+        }
+        else
+        {
+            RenderVerticalGradient(pixels, width, height);
+        }
+    }
+
+    private void RenderColorfulGrayscale(int[] pixels, int width, int height)
+    {
+        var stripeCount = 4;
+        var primaryLength = barOrientation == BarOrientation.Horizontal ? width : height;
+        var reverse = (barOrientation == BarOrientation.Horizontal && flipMode == FlipMode.Horizontal)
+            || (barOrientation == BarOrientation.Vertical && flipMode == FlipMode.Vertical);
+
+        for (var stripe = 0; stripe < stripeCount; stripe++)
+        {
+            for (var primary = 0; primary < primaryLength; primary++)
+            {
+                var sourcePrimary = reverse ? primaryLength - 1 - primary : primary;
+                var level = QuantizeLevel(primaryLength <= 1 ? 255f : sourcePrimary * 255f / (primaryLength - 1), gradientSteps);
+                var color = stripe switch
+                {
+                    0 => Color.FromArgb(level, level, level).ToArgb(),
+                    1 => Color.FromArgb(level, 0, 0).ToArgb(),
+                    2 => Color.FromArgb(0, level, 0).ToArgb(),
+                    _ => Color.FromArgb(0, 0, level).ToArgb(),
+                };
+
+                if (barOrientation == BarOrientation.Horizontal)
+                {
+                    var y1 = stripe * height / stripeCount;
+                    var y2 = (stripe + 1) * height / stripeCount;
+                    FillRectPixels(pixels, width, height, primary, y1, primary + 1, y2, color);
+                }
+                else
+                {
+                    var x1 = stripe * width / stripeCount;
+                    var x2 = (stripe + 1) * width / stripeCount;
+                    FillRectPixels(pixels, width, height, x1, primary, x2, primary + 1, color);
+                }
+            }
+        }
+    }
+
+    private void RenderWrgbColorbar(int[] pixels, int width, int height)
+    {
+        var stripeCount = 4;
+        for (var stripe = 0; stripe < stripeCount; stripe++)
+        {
+            var color = stripe switch
+            {
+                0 => Color.FromArgb(grayLevel, grayLevel, grayLevel).ToArgb(),
+                1 => Color.FromArgb(grayLevel, 0, 0).ToArgb(),
+                2 => Color.FromArgb(0, grayLevel, 0).ToArgb(),
+                _ => Color.FromArgb(0, 0, grayLevel).ToArgb(),
+            };
+
+            if (barOrientation == BarOrientation.Horizontal)
+            {
+                var y1 = stripe * height / stripeCount;
+                var y2 = (stripe + 1) * height / stripeCount;
+                FillRectPixels(pixels, width, height, 0, y1, width, y2, color);
+            }
+            else
+            {
+                var x1 = stripe * width / stripeCount;
+                var x2 = (stripe + 1) * width / stripeCount;
+                FillRectPixels(pixels, width, height, x1, 0, x2, height, color);
             }
         }
     }
@@ -1059,13 +1155,19 @@ internal sealed class PatternForm : Form
             return;
         }
 
-        if (pattern is PatternKind.GrayHorizontal or PatternKind.GrayVertical or PatternKind.GrayCenter)
+        if (pattern is PatternKind.LinearGrayscale or PatternKind.GrayCenter)
         {
             if (TryGetColorMode(e.KeyCode, out var mode))
             {
                 grayMode = mode;
                 MarkDirty();
             }
+            return;
+        }
+
+        if (pattern == PatternKind.WrgbColorbar)
+        {
+            HandleGrayLevelKey(e);
             return;
         }
 
@@ -1092,7 +1194,16 @@ internal sealed class PatternForm : Form
                 _ => FlipMode.None
             };
         }
-        else if (pattern is PatternKind.GrayHorizontal or PatternKind.VerticalLine)
+        else if (pattern is PatternKind.LinearGrayscale or PatternKind.ColorfulGrayscale)
+        {
+            RotateGradientPattern();
+        }
+        else if (pattern is PatternKind.WrgbColorbar)
+        {
+            barOrientation = barOrientation == BarOrientation.Horizontal ? BarOrientation.Vertical : BarOrientation.Horizontal;
+            flipMode = FlipMode.None;
+        }
+        else if (pattern is PatternKind.VerticalLine)
         {
             flipMode = flipMode == FlipMode.Horizontal ? FlipMode.None : FlipMode.Horizontal;
         }
@@ -1101,6 +1212,31 @@ internal sealed class PatternForm : Form
             flipMode = flipMode == FlipMode.Vertical ? FlipMode.None : FlipMode.Vertical;
         }
         MarkDirty();
+    }
+
+    private void RotateGradientPattern()
+    {
+        if (barOrientation == BarOrientation.Horizontal && flipMode == FlipMode.None)
+        {
+            flipMode = FlipMode.Horizontal;
+            return;
+        }
+
+        if (barOrientation == BarOrientation.Horizontal && flipMode == FlipMode.Horizontal)
+        {
+            barOrientation = BarOrientation.Vertical;
+            flipMode = FlipMode.None;
+            return;
+        }
+
+        if (barOrientation == BarOrientation.Vertical && flipMode == FlipMode.None)
+        {
+            flipMode = FlipMode.Vertical;
+            return;
+        }
+
+        barOrientation = BarOrientation.Horizontal;
+        flipMode = FlipMode.None;
     }
 
     private void ToggleCrosshair()
