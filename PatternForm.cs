@@ -16,6 +16,8 @@ internal enum PatternKind
     LinearGrayscale,
     ColorfulGrayscale,
     WrgbColorbar,
+    Mux21,
+    Mux22,
     GrayCenter,
     VerticalLine,
     HorizontalLine,
@@ -288,6 +290,10 @@ internal sealed class PatternForm : Form
         contextMenu.Items.Add(grayscaleBar);
         contextMenu.Items.Add(colorfulGrayscale);
         AddMenuItem("WRGB Colorbar", (_, _) => SetPattern(PatternKind.WrgbColorbar));
+        var muxPattern = new ToolStripMenuItem("MUX Pattern");
+        muxPattern.DropDownItems.Add("MUX2-1", null, (_, _) => SetPattern(PatternKind.Mux21));
+        muxPattern.DropDownItems.Add("MUX2-2", null, (_, _) => SetPattern(PatternKind.Mux22));
+        contextMenu.Items.Add(muxPattern);
         contextMenu.Items.Add(grayCenter);
 
         var vline = new ToolStripMenuItem("Vertical line");
@@ -670,6 +676,14 @@ internal sealed class PatternForm : Form
                 Array.Fill(pixels, black);
                 RenderWrgbColorbar(pixels, width, height);
                 break;
+            case PatternKind.Mux21:
+                Array.Fill(pixels, black);
+                RenderMuxPattern(pixels, width, height, false);
+                break;
+            case PatternKind.Mux22:
+                Array.Fill(pixels, black);
+                RenderMuxPattern(pixels, width, height, true);
+                break;
             case PatternKind.GrayCenter:
                 Array.Fill(pixels, black);
                 RenderCenterGradient(pixels, width, height);
@@ -830,6 +844,31 @@ internal sealed class PatternForm : Form
                 var x1 = stripe * width / stripeCount;
                 var x2 = (stripe + 1) * width / stripeCount;
                 FillRectPixels(pixels, width, height, x1, 0, x2, height, color);
+            }
+        }
+    }
+
+    private static void RenderMuxPattern(int[] pixels, int width, int height, bool swapRows)
+    {
+        var yellow = Color.FromArgb(255, 255, 0).ToArgb();
+        var cyan = Color.FromArgb(0, 255, 255).ToArgb();
+        var blue = Color.FromArgb(0, 0, 255).ToArgb();
+        var red = Color.FromArgb(255, 0, 0).ToArgb();
+
+        var row0 = new[] { yellow, cyan, blue, red };
+        var row1 = new[] { blue, red, yellow, cyan };
+        if (swapRows)
+        {
+            (row0, row1) = (row1, row0);
+        }
+
+        for (var y = 0; y < height; y++)
+        {
+            var row = (y & 1) == 0 ? row0 : row1;
+            var offset = y * width;
+            for (var x = 0; x < width; x++)
+            {
+                pixels[offset + x] = row[x & 3];
             }
         }
     }
