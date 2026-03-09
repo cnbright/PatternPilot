@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using Microsoft.Win32;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -57,7 +58,7 @@ internal sealed class PatternForm : Form
     private readonly ContextMenuStrip contextMenu = new();
     private readonly System.Windows.Forms.Timer checkerTimer = new() { Interval = 100 };
     private readonly List<Screen> screens = [];
-    private readonly Form taskbarProxy = new();
+    private readonly System.Windows.Forms.Timer displayChangeTimer = new() { Interval = 300 };
 
     private Bitmap? backBuffer;
     private bool renderDirty = true;
@@ -70,6 +71,9 @@ internal sealed class PatternForm : Form
     private string hlineMode = "1line";
     private int monitorIndex;
     private DateTime lastMonitorSwitch = DateTime.MinValue;
+    private string? preferredMonitorDeviceName;
+    private Rectangle preferredMonitorBounds;
+    private bool displayEventsRegistered;
     private bool tabDown;
     private bool showHud = true;
     private bool crosshairEnabled;
@@ -104,7 +108,7 @@ internal sealed class PatternForm : Form
         Text = "PatternPilot";
         FormBorderStyle = FormBorderStyle.None;
         StartPosition = FormStartPosition.Manual;
-        ShowInTaskbar = false;
+        ShowInTaskbar = true;
 
         var iconPath = Path.Combine(AppContext.BaseDirectory, "app.ico");
         if (File.Exists(iconPath))
@@ -116,8 +120,13 @@ internal sealed class PatternForm : Form
             Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
         }
 
-        ConfigureTaskbarProxy();
         BuildMenu();
+        displayChangeTimer.Tick += (_, _) =>
+        {
+            displayChangeTimer.Stop();
+            HandleDisplayTopologyChanged();
+        };
+        RegisterDisplayChangeHandlers();
         RefreshScreens();
         ApplyMonitor(0);
 
@@ -221,54 +230,16 @@ internal sealed class PatternForm : Form
     {
         if (disposing)
         {
+            UnregisterDisplayChangeHandlers();
             checkerTimer.Dispose();
+            displayChangeTimer.Dispose();
             contextMenu.Dispose();
             loadedImage?.Dispose();
             crosstalkBackgroundImage?.Dispose();
             crosstalkBlockImage?.Dispose();
             backBuffer?.Dispose();
-            taskbarProxy.Dispose();
         }
         base.Dispose(disposing);
-    }
-
-    private void ConfigureTaskbarProxy()
-    {
-        taskbarProxy.Text = Text;
-        taskbarProxy.ShowInTaskbar = true;
-        taskbarProxy.StartPosition = FormStartPosition.Manual;
-        taskbarProxy.Size = new Size(240, 120);
-        taskbarProxy.Location = new Point(0, 0);
-        taskbarProxy.WindowState = FormWindowState.Minimized;
-        taskbarProxy.FormBorderStyle = FormBorderStyle.SizableToolWindow;
-        taskbarProxy.Load += (_, _) => taskbarProxy.WindowState = FormWindowState.Minimized;
-        taskbarProxy.FormClosing += (_, e) =>
-        {
-            if (!Disposing)
-            {
-                e.Cancel = true;
-                Close();
-            }
-        };
-        taskbarProxy.Activated += (_, _) =>
-        {
-            Activate();
-            taskbarProxy.BeginInvoke(() => taskbarProxy.WindowState = FormWindowState.Minimized);
-        };
-        taskbarProxy.Resize += (_, _) =>
-        {
-            if (taskbarProxy.WindowState != FormWindowState.Minimized)
-            {
-                Activate();
-                taskbarProxy.BeginInvoke(() => taskbarProxy.WindowState = FormWindowState.Minimized);
-            }
-        };
-        if (Icon is not null)
-        {
-            taskbarProxy.Icon = Icon;
-        }
-        taskbarProxy.Show();
-        taskbarProxy.WindowState = FormWindowState.Minimized;
     }
 
     private void BuildMenu()
@@ -328,6 +299,11 @@ internal sealed class PatternForm : Form
 
     private void ApplyMonitor(int index)
     {
+        ApplyMonitor(index, rememberPreference: true);
+    }
+
+    private void ApplyMonitor(int index, bool rememberPreference)
+    {
         if (screens.Count == 0)
         {
             RefreshScreens();
@@ -338,7 +314,13 @@ internal sealed class PatternForm : Form
         }
 
         monitorIndex = Math.Clamp(index, 0, screens.Count - 1);
-        var bounds = screens[monitorIndex].Bounds;
+        var screen = screens[monitorIndex];
+        var bounds = screen.Bounds;
+        if (rememberPreference)
+        {
+            preferredMonitorDeviceName = screen.DeviceName;
+            preferredMonitorBounds = bounds;
+        }
         Location = bounds.Location;
         Size = bounds.Size;
         Activate();
@@ -360,6 +342,109 @@ internal sealed class PatternForm : Form
         }
 
         ApplyMonitor((monitorIndex + 1) % screens.Count);
+    }
+
+    private void RegisterDisplayChangeHandlers()
+    {
+        if (displayEventsRegistered)
+        {
+            return;
+        }
+
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+        displayEventsRegistered = true;
+    }
+
+    private void UnregisterDisplayChangeHandlers()
+    {
+        if (!displayEventsRegistered)
+        {
+            return;
+        }
+
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
+        displayEventsRegistered = false;
+    }
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs e)
+    {
+        QueueDisplayTopologyRefresh();
+    }
+
+    private void QueueDisplayTopologyRefresh()
+    {
+        if (IsDisposed)
+        {
+            return;
+        }
+
+        if (InvokeRequired)
+        {
+            BeginInvoke(QueueDisplayTopologyRefresh);
+            return;
+        }
+
+        displayChangeTimer.Stop();
+        displayChangeTimer.Start();
+    }
+
+    private void HandleDisplayTopologyChanged()
+    {
+        RefreshScreens();
+        if (screens.Count == 0)
+        {
+            return;
+        }
+
+        var preferredIndex = FindPreferredMonitorIndex();
+        if (preferredIndex >= 0)
+        {
+            ApplyMonitor(preferredIndex, rememberPreference: false);
+            return;
+        }
+
+        var fallbackIndex = screens.FindIndex(screen => screen.Primary);
+        if (fallbackIndex < 0)
+        {
+            fallbackIndex = 0;
+        }
+
+        ApplyMonitor(fallbackIndex, rememberPreference: false);
+    }
+
+    private int FindPreferredMonitorIndex()
+    {
+        if (!string.IsNullOrWhiteSpace(preferredMonitorDeviceName))
+        {
+            var deviceMatch = screens.FindIndex(screen => string.Equals(screen.DeviceName, preferredMonitorDeviceName, StringComparison.OrdinalIgnoreCase));
+            if (deviceMatch >= 0)
+            {
+                return deviceMatch;
+            }
+        }
+
+        if (preferredMonitorBounds != Rectangle.Empty)
+        {
+            var boundsMatch = screens.FindIndex(screen => screen.Bounds == preferredMonitorBounds);
+            if (boundsMatch >= 0)
+            {
+                return boundsMatch;
+            }
+        }
+
+        return -1;
+    }
+
+    protected override void WndProc(ref Message m)
+    {
+        const int WM_DISPLAYCHANGE = 0x007E;
+
+        base.WndProc(ref m);
+
+        if (m.Msg == WM_DISPLAYCHANGE)
+        {
+            QueueDisplayTopologyRefresh();
+        }
     }
 
     private void SetPattern(PatternKind value)
