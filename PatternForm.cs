@@ -720,19 +720,15 @@ internal sealed class PatternForm : Form
         var onColor = ColorFromMode(checkerMode, checkerLevel).ToArgb();
         var offColor = Color.Black.ToArgb();
         var cells = CheckerSizes[checkerSizeIndex];
-        var cellW = Math.Max(width / cells, 1);
-        var cellH = Math.Max(height / cells, 1);
 
         for (var row = 0; row < cells; row++)
         {
-            var y1 = row * cellH;
-            var y2 = row == cells - 1 ? height : Math.Min((row + 1) * cellH, height);
+            var srcY1 = row * height / cells;
+            var srcY2 = (row + 1) * height / cells;
             for (var col = 0; col < cells; col++)
             {
-                var srcX1 = col * cellW;
-                var srcX2 = col == cells - 1 ? width : Math.Min((col + 1) * cellW, width);
-                var srcY1 = y1;
-                var srcY2 = y2;
+                var srcX1 = col * width / cells;
+                var srcX2 = (col + 1) * width / cells;
                 var x1 = flipMode == FlipMode.Horizontal ? width - srcX2 : srcX1;
                 var x2 = flipMode == FlipMode.Horizontal ? width - srcX1 : srcX2;
                 var dy1 = flipMode == FlipMode.Vertical ? height - srcY2 : srcY1;
