@@ -73,9 +73,3 @@ powershell -ExecutionPolicy Bypass -File publish.ps1 -Mode single-small
 - [StartupMetrics.cs](StartupMetrics.cs)：启动时间记录
 - [publish.ps1](publish.ps1)：发布脚本
 - [measure_startup.ps1](measure_startup.ps1)：启动测速脚本
-
-## 说明
-
-- 软件默认首页内置了中文使用说明
-- `One Third` 画面规则为 `1/3` 白色、`2/3` 黑色
-- Release 中提供了更小体积的单文件发布方案
