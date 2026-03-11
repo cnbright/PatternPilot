@@ -1406,18 +1406,16 @@ internal sealed class PatternForm : Form
             switch (e.KeyCode)
             {
                 case Keys.Left:
-                    rect.X = Math.Max(rect.X - step, 0);
-                    rect.Width += step;
+                    ResizeCrosstalkHorizontally(ref rect, step);
                     break;
                 case Keys.Right:
-                    rect.Width += step;
+                    ResizeCrosstalkHorizontally(ref rect, -step);
                     break;
                 case Keys.Up:
-                    rect.Y = Math.Max(rect.Y - step, 0);
-                    rect.Height += step;
+                    ResizeCrosstalkVertically(ref rect, step);
                     break;
                 case Keys.Down:
-                    rect.Height += step;
+                    ResizeCrosstalkVertically(ref rect, -step);
                     break;
                 default:
                     return;
@@ -1467,6 +1465,22 @@ internal sealed class PatternForm : Form
         crosstalkRect = rect;
         ClampCrosstalkRect();
         MarkDirty();
+    }
+
+    private static void ResizeCrosstalkHorizontally(ref Rectangle rect, int delta)
+    {
+        var centerX = rect.X + (rect.Width / 2f);
+        var newWidth = Math.Max(1, rect.Width + (delta * 2));
+        rect.Width = newWidth;
+        rect.X = (int)Math.Round(centerX - (newWidth / 2f));
+    }
+
+    private static void ResizeCrosstalkVertically(ref Rectangle rect, int delta)
+    {
+        var centerY = rect.Y + (rect.Height / 2f);
+        var newHeight = Math.Max(1, rect.Height + (delta * 2));
+        rect.Height = newHeight;
+        rect.Y = (int)Math.Round(centerY - (newHeight / 2f));
     }
 
     private void HandleCrosshairKey(KeyEventArgs e)
