@@ -63,6 +63,7 @@ internal sealed class PatternForm : Form
     private Bitmap? backBuffer;
     private bool renderDirty = true;
     private bool firstFrameLogged;
+    private Size lastClientSize;
 
     private PatternKind pattern = PatternKind.None;
     private int grayLevel = 127;
@@ -150,6 +151,8 @@ internal sealed class PatternForm : Form
     protected override void OnResize(EventArgs e)
     {
         base.OnResize(e);
+        ScaleOverlayRectsForResize(lastClientSize, ClientSize);
+        lastClientSize = ClientSize;
         EnsureBackBuffer();
         ClampCrosstalkRect();
         ReloadScaledAssets();
@@ -1615,6 +1618,29 @@ internal sealed class PatternForm : Form
         }
 
         ClampCrosstalkRect();
+    }
+
+    private void ScaleOverlayRectsForResize(Size previousSize, Size currentSize)
+    {
+        if (previousSize.Width <= 0 || previousSize.Height <= 0 || currentSize.Width <= 0 || currentSize.Height <= 0)
+        {
+            return;
+        }
+
+        if (previousSize == currentSize || crosstalkRect is null)
+        {
+            return;
+        }
+
+        var rect = crosstalkRect.Value;
+        var scaleX = (float)currentSize.Width / previousSize.Width;
+        var scaleY = (float)currentSize.Height / previousSize.Height;
+        rect = new Rectangle(
+            (int)Math.Round(rect.X * scaleX),
+            (int)Math.Round(rect.Y * scaleY),
+            Math.Max(1, (int)Math.Round(rect.Width * scaleX)),
+            Math.Max(1, (int)Math.Round(rect.Height * scaleY)));
+        crosstalkRect = rect;
     }
 
     private void ClampCrosstalkRect()
